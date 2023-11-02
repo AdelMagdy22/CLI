@@ -338,6 +338,23 @@ public class Terminal {
             case "wc":
                 wc(args);
                 break;
+            case "mkdir":
+                mkdir(args);
+                break;
+            case "history":
+                history();
+                break;
+            case "cp":
+                if(args.length==3)
+                {
+                    cpR(args);
+                }
+                else
+                {
+                    cp(args);
+                }
+                
+                break;    
             default:
                 System.out.println("Unknown command: " + commandName);
         }

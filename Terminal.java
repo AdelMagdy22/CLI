@@ -3,16 +3,27 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.util.Arrays;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class Terminal {
     private Parser parser;
     private String currentDirectory;
+    private List<String> commandHistory = new ArrayList<>();
 
     public Terminal() {
         this.parser = new Parser();
         this.currentDirectory = "/";
+    }
+
+    public void setHistory(String str)
+    {
+        this.commandHistory.add(str); 
     }
 
     public String pwd() {
@@ -142,31 +153,159 @@ public class Terminal {
         }
     }
 
+    public boolean isPath(String inputString) 
+    {
+        return inputString.contains("\\");
+    }
     public void wc(String[] args) {
+        Path filePath;       
         if (args.length == 1) {
-            Path filePath = Paths.get(args[0]);
-
-            if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
-                try {
-                    long lineCount = Files.lines(filePath).count();
-                    long wordCount = Files.lines(filePath)
-                            .flatMap(line -> Arrays.stream(line.split("\\s+")))
-                            .filter(word -> !word.isEmpty())
-                            .count();
-                    long charCount = Files.lines(filePath)
-                            .mapToLong(String::length)
-                            .sum();
-
-                    System.out.println(lineCount + " " + wordCount + " " + charCount + " " + filePath.getFileName());
-                } catch (IOException e) {
-                    System.out.println("Error reading file: " + e.getMessage());
-                }
-            } else {
-                System.out.println("File not found: " + args[0]);
+            if (isPath(args[0]))
+            {
+                filePath = Paths.get(args[0]);
             }
+            else
+            {
+                filePath = Paths.get(currentDirectory+'\\'+args[0]);
+            }
+            if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+            try {
+                long lineCount = Files.lines(filePath).count();
+                long wordCount = Files.lines(filePath)
+                        .flatMap(line -> Arrays.stream(line.split("\\s+")))
+                        .filter(word -> !word.isEmpty())
+                        .count();
+                long charCount = Files.lines(filePath)
+                        .mapToLong(String::length)
+                        .sum();
+
+                System.out.println(lineCount + " " + wordCount + " " + charCount + " " + filePath.getFileName());
+            } 
+            catch (IOException e) {
+                System.out.println("Error reading file: " + e.getMessage());
+                }
+            } 
+            else {
+            System.out.println("File not found: " + args[0]);
+            }
+            
         } else {
             System.out.println("Invalid arguments for wc command");
         }
+    }
+
+    public void cp(String[] args) {
+        if (args.length == 2) {
+            Path source = Paths.get(args[0]);
+            Path target = Paths.get(args[1]);
+
+            try {
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("Copied " + args[0] + " to " + args[1]);
+            } catch (IOException e) {
+                System.out.println("Error copying file: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Invalid arguments for cp command");
+        }
+    }
+
+    public static String targetPath(String str1,String str2)
+    {
+        String[] strArray = str1.split("\\\\");
+        return str2+"\\"+strArray[strArray.length-1];
+    }
+    public void cpR(String[] args) {
+        Path source;
+        Path target;
+        if (args.length == 3) {
+            if(isPath(args[1]) && isPath(args[2]))
+            {
+                source = Paths.get(args[1]);
+                target = Paths.get(targetPath(args[1],args[2]));
+            }
+            else if (!isPath(args[1]) && !isPath(args[2]))
+            {
+                source = Paths.get(currentDirectory+'\\'+args[1]);
+                target = Paths.get(targetPath(currentDirectory+'\\'+args[1],currentDirectory+'\\'+args[2]));
+            }
+            else if (!isPath(args[1]) && isPath(args[2]))
+            {
+                source = Paths.get(currentDirectory+'\\'+args[1]);
+                target = Paths.get(targetPath(args[1],args[2]));
+            }
+            else
+            {
+                source = Paths.get(args[1]);
+                target = Paths.get(targetPath(currentDirectory+'\\'+args[1],currentDirectory+'\\'+args[2]));
+            }
+
+            try {
+                Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+                        Path targetDir = target.resolve(source.relativize(dir));
+                        Files.createDirectories(targetDir);
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        Files.copy(file, target.resolve(source.relativize(file)), StandardCopyOption.REPLACE_EXISTING);
+                        return FileVisitResult.CONTINUE;
+                    }
+                });
+                System.out.println("Recursively copied " + args[1] + " to " + args[2]);
+            } catch (IOException e) {
+                System.out.println("Error copying directory: " + e.getMessage());
+            }
+        } else {
+            System.out.println("Invalid arguments for cp -r command");
+        }
+    }
+
+    public void mkdir(String[] args) {
+        Path directory;
+        if (args.length >= 1) {
+            for (int i=0 ; i<args.length;i++){
+                if (isPath(args[i]))
+                {
+                    directory = Paths.get(args[i]);
+                }
+                else
+                {
+                    directory = Paths.get(currentDirectory+'\\'+args[i]);
+                }
+                if (Files.exists(directory) && Files.isDirectory(directory))
+                {
+                    System.out.println("this directory exist already");
+                }
+                else
+                {
+                    try {
+
+                    Files.createDirectories(directory);
+                    System.out.println("Created directory: " + args[i]);
+                    } 
+                    catch (IOException e) {
+                        System.out.println("Error creating directory: " + e.getMessage());
+                    }
+                }
+            }
+            
+            
+        } else {
+            System.out.println("Invalid arguments for mkdir command");
+        }
+    }
+
+    public void history() 
+    {
+        
+        for(int i=0; i<this.commandHistory.size()-1;i++)
+            {
+                System.out.println(this.commandHistory.get(i));
+            }
     }
 
     public void chooseCommandAction() {
@@ -210,7 +349,7 @@ public class Terminal {
         while (true) {
             System.out.print("Enter command: ");
             String input = new java.util.Scanner(System.in).nextLine();
-
+            terminal.setHistory(input);
             if (input.equals("exit")) {
                 break;
             }

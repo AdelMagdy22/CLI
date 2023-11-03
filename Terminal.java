@@ -404,7 +404,7 @@ public void cd(String[] args) {
                 echo(args);
                 break;
             case "ls":
-                if(args_length == 0)
+                if(args.length == 0)
                     ls();
                 else
                     lsR();

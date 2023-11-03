@@ -30,41 +30,56 @@ public class Terminal {
         return "Current directory: " + currentDirectory;
     }
 
-    public void cd(String[] args) {
+    
+public void cd(String[] args) {
         if (args.length == 0) {
-            // Case 1: cd takes no arguments and changes the current path to the home directory.
             currentDirectory = System.getProperty("user.home");
             System.out.println("Changed directory to home: " + currentDirectory);
-        } else if (args.length == 1) {
+        } 
+        else if (args.length >= 1) {
             if (args[0].equals("..")) {
-                // Case 2: cd takes 1 argument which is “..” and changes the current directory to the previous directory.
                 File currentDirFile = new File(currentDirectory);
-                currentDirectory = currentDirFile.getParent();
-                System.out.println("Changed directory to parent: " + currentDirectory);
+                if (currentDirFile.getParent() != null) {
+                    currentDirectory = currentDirFile.getParent();
+                    System.out.println("Changed directory to parent: " + currentDirectory);
+                } else {
+                    System.out.println("You are in the parent directory: " + currentDirFile);
+                }
             } else {
-                // Case 3: cd takes 1 argument which is either the full path or the relative path and changes the current path to that path.
-                File newDir = new File(args[0]);
-
-                if (newDir.isAbsolute()) {
-                    // Handle full path
-                    try {
-                        currentDirectory = newDir.getCanonicalPath();
-                        System.out.println("Changed directory to: " + currentDirectory);
-                    } catch (IOException e) {
-                        System.out.println("Invalid path: " + newDir.getPath());
+                String new_args = "";
+                for (int i = 0; i < args.length - 1; i++) {
+                    new_args += args[i] + " ";
+                }
+                new_args += args[args.length - 1];
+                File newDir = new File(new_args);
+        
+                if (newDir.isAbsolute() || newDir.getPath().startsWith("..")) {
+                    if (newDir.exists() && newDir.isDirectory()) {
+                        try {
+                            currentDirectory = newDir.getCanonicalPath();
+                            System.out.println("Changed directory to: " + currentDirectory);
+                        } catch (IOException e) {
+                            System.out.println("Invalid path: " + newDir.getPath());
+                        }
+                    } else {
+                        System.out.println("Invalid directory: " + newDir.getPath());
                     }
                 } else {
-                    // Handle relative path
-                    newDir = new File(currentDirectory, args[0]);
-                    try {
-                        currentDirectory = newDir.getCanonicalPath();
-                        System.out.println("Changed directory to: " + currentDirectory);
-                    } catch (IOException e) {
-                        System.out.println("Invalid path: " + newDir.getPath());
+                    newDir = new File(currentDirectory,new_args);
+                    if (newDir.exists() && newDir.isDirectory()) {
+                        try {
+                            currentDirectory = newDir.getCanonicalPath();
+                            System.out.println("Changed directory to: " + currentDirectory);
+                        } catch (IOException e) {
+                            System.out.println("Invalid path: " + newDir.getPath());
+                        }
+                    } else {
+                        System.out.println("Invalid directory: " + newDir.getPath());
                     }
                 }
             }
-        } else {
+        } 
+        else {
             System.out.println("Invalid arguments for cd command");
         }
     }
@@ -89,22 +104,15 @@ public class Terminal {
     }
 
     public void lsR() {
-        listFilesRecursive(new File(currentDirectory));
-    }
-
-    private void listFilesRecursive(File directory) {
-        File[] files = directory.listFiles();
-
+        File dir = new File(currentDirectory);
+        String[] files = dir.list();
         if (files != null) {
-            Arrays.sort(files, (f1, f2) -> f2.getName().compareTo(f1.getName()));
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    System.out.println(file.getPath());
-                    listFilesRecursive(file);
-                } else {
-                    System.out.println(file.getName());
-                }
+            Arrays.sort(files, Comparator.reverseOrder());
+            for (String file : files) {
+                System.out.println(file);
             }
+        } else {
+            System.out.println("Error reading directory");
         }
     }
 
@@ -298,6 +306,75 @@ public class Terminal {
             System.out.println("Invalid arguments for mkdir command");
         }
     }
+    public void touch(String[] args) {
+        if (args.length >= 1) {
+            Path filePath;
+            for (String arg : args) {
+                if (arg.contains("\\")) {
+                    filePath = Paths.get(arg);
+                } else{
+                    filePath = Paths.get(currentDirectory + arg);
+                }
+                try {
+                    if (Files.exists(filePath)) {
+                        System.out.println("File already exists in: " + filePath);
+                    } else {
+                        Files.createFile(filePath);
+                        System.out.println("Created a new file: " + filePath);
+                    }
+                } catch (IOException e) {
+                    System.out.println("An error occurred while creating the file: " + e.getMessage());
+                }
+            }
+        } else {
+            System.out.println("An error occurred while creating the file");
+        }
+    }
+    public void rm(String[] args) {
+        if (args.length == 1) {
+            Path filePath;
+            if (args[0].contains("\\")) {
+                filePath = Paths.get(args[0]);
+            } else {
+                filePath = Paths.get(currentDirectory + args[0]);
+            }
+            try {
+                if (Files.exists(filePath)) {
+                    Files.delete(filePath);
+                    System.out.println("File at: " + filePath + " has been deleted");
+                }
+            } catch (IOException e) {
+                System.out.println("An error occurred while deleting the file: " + e.getMessage());
+            }
+        } else {
+            System.out.println("An error occurred while deleting the file");
+        }
+    }
+    
+    public void cat(String[] args) {
+        if (args.length >= 1) {
+            for (String arg : args) {
+                Path filePath;
+                if (arg.contains("\\")) {
+                    filePath = Paths.get(arg);
+                } else {
+                    filePath = Paths.get(currentDirectory, arg);
+                }
+                if (Files.exists(filePath)) {
+                    try {
+                        List<String> lines = Files.readAllLines(filePath);
+                        for (String line : lines) {
+                            System.out.println(line);
+                        }
+                    } catch (IOException e) {
+                        System.out.println("An error occurred while reading the file: " + e.getMessage());
+                    }
+                } else {
+                    System.out.println("File not found: " + filePath);
+                }
+            }
+        }
+    }
 
     public void history() 
     {
@@ -327,10 +404,10 @@ public class Terminal {
                 echo(args);
                 break;
             case "ls":
-                ls();
-                break;
-            case "ls -r":
-                lsR();
+                if(args_length == 0)
+                    ls();
+                else
+                    lsR();
                 break;
             case "rmdir":
                 rmdir(args);
@@ -354,7 +431,16 @@ public class Terminal {
                     cp(args);
                 }
                 
-                break;    
+                break;
+            case "touch":
+                touch(args);
+                break;
+            case "rm":
+                rm(args);
+                break;
+            case "cat":
+                cat(args);
+                break;
             default:
                 System.out.println("Unknown command: " + commandName);
         }
